@@ -1,5 +1,6 @@
 package fr.arinonia.valkyria.bootstrap.ui;
 
+import fr.arinonia.valkyria.bootstrap.launcher.Launcher;
 import fr.arinonia.valkyria.bootstrap.ui.components.CustomButton;
 import fr.arinonia.valkyria.bootstrap.updater.DownloadJob;
 import fr.arinonia.valkyria.bootstrap.updater.DownloadListener;
@@ -63,22 +64,36 @@ public class BootstrapPanel extends JPanel implements DownloadListener {
     }
 
     private void start(){
-        DownloadJob gameJob = new DownloadJob("java", this);
-        Updater updater = new Updater("http://dev.valkyria.fr/download/java/java_" + OsUtil.getOs().toString().toLowerCase() + ".json", createGameDir(), gameJob);
-        updater.start();
-        progressBar.setMaximum(gameJob.getAllFiles().size());
-        gameJob.startDownloading(executorService);
+        DownloadJob javaJob = new DownloadJob("java", this);
+        DownloadJob launcherJob = new DownloadJob("launcher", this);
+
+        Updater javaUpdater = new Updater("http://dev.valkyria.fr/download/java/java_" + OsUtil.getOs().toString().toLowerCase() + ".json", new File(createGameDir(), "runtime"), javaJob);
+        javaUpdater.start();
+        Updater launcherUpdater = new Updater("http://dev.valkyria.fr/download/bootstrap/bootstrap.json",new File(createGameDir(), "launcher") , launcherJob);
+        launcherUpdater.start();
+        //TODO create event on job start to downloading
+        progressBar.setMaximum(javaJob.getAllFiles().size());
+        javaJob.startDownloading(executorService);
+        launcherJob.startDownloading(executorService);
     }
 
     @Override
     public void onDownloadJobFinished(DownloadJob job) {
-        //TODO OUBLIE PAS FDP T'AS UN TRUC A METTRE MAIS JE SAIS PLUS QUOI
+       if (job.getName().equalsIgnoreCase("launcher")){
+            progressBar.setValue(progressBar.getMaximum());
+            progressBar.setString("Lancement du launcher...");
+           try {
+               new Launcher().launchJar(new File(createGameDir(), "launcher" + File.separator + "Launcher.jar"));
+           } catch (Exception e) {
+               e.printStackTrace();
+           }
+       }
     }
 
     @Override
     public void onDownloadJobProgressChanged(DownloadJob job) {
-        progressBar.setValue(job.getAllFiles().size()-job.getRemainingFiles().size());
-        progressBar.setString("Téléchargement: " + job.getRemainingFiles().size() + " fichiers restants");
+        progressBar.setValue(job.getAllFiles().size() - job.getRemainingFiles().size());
+        progressBar.setString("Téléchargement de '" + job.getName() + "': " + job.getRemainingFiles().size() + " fichiers restants");
     }
 
     private File createGameDir() {
